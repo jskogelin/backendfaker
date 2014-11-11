@@ -25,6 +25,8 @@ if (argv.h) {
 /**
  * Sets up a fake "backend" that intercepts calls made to paths specified in a backend.json file.
  *
+ * Backend constructor.
+ *
  * TODO: add support for a nested backend architecture
  * TODO: add way to pass arguments to faker methods through backend.json (e.g. for specifying max range in faker.random.number())
  * TODO: add support for request types other than just get
@@ -58,7 +60,7 @@ var BackendFaker = function (config) {
     this.readBackendConfig = function (cb) {
         fs.readFile(CONFIG.BACKENDPATH, 'utf8', function (err, data) {
             if (err) {
-                throw 'There was an error reading the backend config!';
+                throw 'There was an error reading the backend config! Make sure you have a backend.json file in the directory from where this is running.';
             } else {
                 _super.backend = JSON.parse(data);
                 cb();
