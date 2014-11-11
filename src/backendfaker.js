@@ -17,6 +17,7 @@ if (argv.h) {
         '  -d       sets a maximum delay (in milliseconds) for the server to wait before responding',
         '  -b       looks for the backend.json file in the specified path',
         '  -h       halp',
+        '  -s       silent mode. No logs of requests, etc.',
         ''
     ].join('\n'));
     process.exit();
@@ -55,6 +56,9 @@ var BackendFaker = function (config) {
 
     var fakerMethod = JSON.parse('{"name":["firstName","lastName","findName","prefix","suffix"],"address":["zipCode","city","cityPrefix","citySuffix","streetName","streetAddress","streetSuffix","secondaryAddress","county","country","state","stateAbbr","latitude","longitude"],"phone":["phoneNumber","phoneNumberFormat","phoneFormats"],"internet":["avatar","email","userName","domainName","domainSuffix","domainWord","ip","userAgent","color","password"],"company":["suffixes","companyName","companySuffix","catchPhrase","bs","catchPhraseAdjective","catchPhraseDescriptor","catchPhraseNoun","bsAdjective","bsBuzz","bsNoun"],"image":["image","avatar","imageUrl","abstract","animals","business","cats","city","food","nightlife","fashion","people","nature","sports","technics","transport"],"lorem":["words","sentence","sentences","paragraph","paragraphs"],"helpers":["randomNumber","randomize","slugify","replaceSymbolWithNumber","shuffle","mustache","createCard","contextualCard","userCard","createTransaction"],"date":["past","future","between","recent"],"random":["number","array_element","object_element"],"finance":["account","accountName","mask","amount","transactionType","currencyCode","currencyName","currencySymbol"],"hacker":["abbreviation","adjective","noun","verb","ingverb","phrase"]}');
 
+    var doLog = function(message) {
+        if (!argv.s) { console.log(message) }   //log if not silent
+    };
 
     //reads the backend.json file located in the path specified by the CONFIG
     this.readBackendConfig = function (cb) {
@@ -201,7 +205,7 @@ var BackendFaker = function (config) {
                     response.header("Access-Control-Allow-Origin", "*");
                     response.header("Access-Control-Allow-Headers", "X-Requested-With");
                     response.send(res.response.string());
-                    console.log('REQUEST: ' + request.method + ' ' + request.url);
+                    doLog('REQUEST: ' + request.method + ' ' + request.url);
                 }, (CONFIG.DELAY === 0) ? CONFIG.DELAY : faker.random.number(CONFIG.DELAY));
             });
         });
@@ -217,7 +221,7 @@ var BackendFaker = function (config) {
 var translateCfg = {
     'd': 'DELAY',
     'p': 'PORT',
-    'b': 'BACKENDPATH'
+    'b': 'BACKENDPATH',
 };
 
 var config = {};
