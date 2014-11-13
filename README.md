@@ -22,7 +22,7 @@ Create a `backend.json` file in your project folder. `backend.json` sample:
 ]
 ```
 
-Each value nested under a path is the name of a faker method. 
+Each value nested under a path is the name of a faker method. Available faker methods can be found [here](http://marak.com/faker.js/)
 
 Following the former example, a call to `/fake/response/123` would produce
 ```json
@@ -30,6 +30,7 @@ Following the former example, a call to `/fake/response/123` would produce
 ```
 
 ### lists
+You can request a list of generated data by including a `_LIST_` key followed by the maximum number of items you want in the list.
 ```json
 [
     {
@@ -41,17 +42,13 @@ Following the former example, a call to `/fake/response/123` would produce
     }
 ]
 ```
-You can configure your backend to return a list of results. `_LIST_` tells backend-faker that you expect a list of
-the provided key/value pairs. So, a request to `localhost:2000/i/want/a/list/of/stuff/123` would produce a list of 
-`{"first_name": "SomeFirstName", "last_name": "SomeLastName"}` containing a maximum of 20 results.
 
-Including `/:id` in a path will cache the result of the first call, using that segment of the path as an id for future reference. Thus, a request to `/fake/response/123` will only generate new data the first time it was called, calling it again would return that same data.
-
-### connections
+### joins
+You can join ids of two requests by including a `_JOIN_` value containing a previously defined path.
 ```json
 [
     {
-        "/list/of/stuff/:id": {
+        "/list/of/profiles/:id": {
             "_LIST_": 20,
             "id": "number",
             "first_name": "firstName",
@@ -60,7 +57,7 @@ Including `/:id` in a path will cache the result of the first call, using that s
     },
     {
         "/profile/:id": {
-            "_CONNECT_": "/i/want/a/list/of/stuff/:id",
+            "_JOIN_": "/i/want/a/list/of/stuff/:id",
             "id": "number",
             "profilePic": "avatar",
             "email_address": "email",
@@ -69,7 +66,13 @@ Including `/:id` in a path will cache the result of the first call, using that s
     }
 ]
 ```
-Specifying a previously defined path as a value of `_CONNECT_` will match the provided id with an id in the result of the previously defined path and extend the response with that result.
+In this case, a request to `/profile/:id` (provided with an id found in `/list/of/profiles/:id`) would join the two responses before returning.
 
-This can be useful for loading an extended fake profile for example: A request is made for `"/list/of/stuff/:id"`. From that list, a profile with the id of `123` is clicked, thus a request to `/profile/:id` is made. Since `/profile/:id` contains a `_CONNECT_` key, it will find an element containing a matching ID in the cached response of `/list/of/stuff/:id`, extend that element with the `/profile/:id` response and return it.
+###upcoming
+* Nested response structure
+* POST
+* PUT
+
+
+
 
