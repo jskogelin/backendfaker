@@ -1,0 +1,35 @@
+[
+    {
+        "/fake/response/:id": {
+            "name": "firstName",
+            "company": "companyName"
+        }
+    },
+    {
+        "/i/want/a/response/:id": {
+            "firstName": "firstName",
+            "lastName": "lastName",
+            "phone": "phoneNumberFormat",
+            "address": "streetName"
+        }
+    },
+    {
+        "/i/want/a/list/of/stuff/:id": {
+            "_LIST_": 20,
+            "id": "number",
+            "firstName": "firstName",
+            "lastName": "lastName",
+            "phone": "phoneNumberFormat",
+            "address": "streetName"
+        }
+    },
+    {
+        "/i/want/a/profile/:id": {
+            "_CONNECT_": "/i/want/a/list/of/stuff/:id",
+            "id": "number",
+            "profilePic": "avatar",
+            "email_address": "email",
+            "country": "country"
+        }
+    }
+]

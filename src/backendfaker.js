@@ -50,7 +50,7 @@ var BackendFaker = function (config) {
     };
     var CONFIG = extend(DEFAULT, config);
 
-    var RESERVEDKEYS = ['_LIST_', '_CONNECT_'];
+    var RESERVEDKEYS = ['_LIST_', '_JOIN_'];
 
     var _super = this;
 
