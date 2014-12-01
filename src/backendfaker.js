@@ -23,12 +23,15 @@ if (argv.h) {
     process.exit();
 }
 
+var isArray = function (arr) {
+    return Object.prototype.toString.call(arr) === '[object Array]';
+};
+
 /**
  * Sets up a fake "backend" that intercepts calls made to paths specified in a backend.json file.
  *
  * Backend constructor.
  *
- * TODO: add support for a nested backend architecture
  * TODO: add way to pass arguments to faker methods through backend.json (e.g. for specifying max range in faker.random.number())
  * TODO: add support for request types other than just get
  * TODO: add a way to "save" to the server by making a PUT request
@@ -55,16 +58,140 @@ var BackendFaker = function (config) {
     var _super = this;
 
     var fakerMethod = JSON.parse('{"name":["firstName","lastName","findName","prefix","suffix"],"address":["zipCode","city","cityPrefix","citySuffix","streetName","streetAddress","streetSuffix","secondaryAddress","county","country","state","stateAbbr","latitude","longitude"],"phone":["phoneNumber","phoneNumberFormat","phoneFormats"],"internet":["avatar","email","userName","domainName","domainSuffix","domainWord","ip","userAgent","color","password"],"company":["suffixes","companyName","companySuffix","catchPhrase","bs","catchPhraseAdjective","catchPhraseDescriptor","catchPhraseNoun","bsAdjective","bsBuzz","bsNoun"],"image":["image","avatar","imageUrl","abstract","animals","business","cats","city","food","nightlife","fashion","people","nature","sports","technics","transport"],"lorem":["words","sentence","sentences","paragraph","paragraphs"],"helpers":["randomNumber","randomize","slugify","replaceSymbolWithNumber","shuffle","mustache","createCard","contextualCard","userCard","createTransaction"],"date":["past","future","between","recent"],"random":["number","array_element","object_element"],"finance":["account","accountName","mask","amount","transactionType","currencyCode","currencyName","currencySymbol"],"hacker":["abbreviation","adjective","noun","verb","ingverb","phrase"]}');
-
+    
+    //log if not silent
     var doLog = function(message) {
-        if (!argv.s) { console.log(message) }   //log if not silent
+        if (!argv.s) { console.log(message) }
+    };
+
+    var isEmpty = function (obj) {
+        for(var prop in obj) {
+            if(obj.hasOwnProperty(prop))
+                return false;
+        }
+
+        return true;
+    };
+
+    var deflated = {};
+
+    /**
+     * Deflate object depth for easier element interaction.
+     *
+     * Each value key populated by pointers to its original location for later use by inflate
+     * @param obj
+     * @param path
+     * @returns {*}
+     */
+    var deflate = function(obj, path) {
+        var dirty = [];
+        deflated[path] = obj;
+        var flatCheck = function() {
+            for (var prop in obj) {
+                if (typeof obj[prop] === 'object') {
+                    dirty.push(prop);
+                }
+            }
+        };
+        var makeFlat = function() {
+            dirty.forEach(function(el, index) {
+                for (var prop in obj[el]) {
+                    obj[prop + ':' + el] = obj[el][prop];           //set pointer to parent object
+                    dirty.splice(index, 1);
+
+                    delete obj[el][prop];
+                    if (isEmpty(obj[el])) { delete obj[el] }
+                }
+            });
+            flatCheck();
+            if (dirty.length > 0) {
+                makeFlat();
+            }
+        };
+        flatCheck();
+        makeFlat();
+        return obj;
+    };
+
+    /**
+     * Inflate the object back to its original state
+     * @param resp
+     */
+    var inflate = function (resp) {
+
+        resp = (!isArray(resp)) ? [resp] : resp;
+
+        /**
+         * Restores the original depth.
+         * @param buffer
+         * @returns {*}
+         */
+        var makeDepth = function (buffer) {
+            var sortable = [];
+            //sort by property depth
+            for (var prop in buffer) {
+                sortable.push(prop);
+            }
+            sortable.sort(function (a, b) {
+                a = (a.match(/:/ig)) ? a.match(/:/ig).length : 0;
+                b = (b.match(/:/ig)) ? b.match(/:/ig).length : 0;
+                return b - a;
+            });
+            sortable.forEach(function (el) {
+                var tempObj = buffer[el];
+                delete buffer[el];
+                buffer[el] = tempObj;
+            });
+
+            for(var prop in buffer) {
+                var pointers = prop.split(':');
+                if (pointers.length > 1) {
+                    buffer[pointers.splice(1, pointers.length).join(':')][pointers[0]] = buffer[prop];
+                }
+            }
+            sortable.forEach(function (el) {
+                if (el.match(/:/ig)) { delete buffer[el]; }
+            });
+
+            return buffer;
+        };
+        /**
+         * Parses segments of each property marked by a :
+         * @param resp
+         * @returns {{}}
+         */
+        var parseSegmentTargets = function (resp) {
+            var segmentsBuffer = {};
+            for (var prop in resp) {
+                var pointerBuffer = prop.split(':');
+                if (pointerBuffer.length > 1) {
+                    for (var i = 1; i < pointerBuffer.length; i++) {
+                        if (i === pointerBuffer.length - 1) {
+                            var spliceCopy = pointerBuffer.splice(1,pointerBuffer.length).join(':');
+                            if (!segmentsBuffer[spliceCopy]) { segmentsBuffer[spliceCopy] = {}; }
+                            segmentsBuffer[spliceCopy][pointerBuffer[0]] = resp[prop];
+                        }
+                    }
+                }
+                else {
+                    segmentsBuffer[prop] = resp[prop];
+                }
+            }
+            return segmentsBuffer;
+        };
+
+        resp.forEach(function (el, index) {
+            resp[index] = makeDepth(parseSegmentTargets(el));
+        });
+
+        return resp;
     };
 
     //reads the backend.json file located in the path specified by the CONFIG
     this.readBackendConfig = function (cb) {
         fs.readFile(CONFIG.BACKENDPATH, 'utf8', function (err, data) {
             if (err) {
-                throw 'There was an error reading the backend config! Make sure you have a backend.json file in the directory from where this is running.';
+                throw 'There was an error reading the backend config! Make sure you have a backend.json file in the directory where this is running.';
             } else {
                 _super.backend = JSON.parse(data);
                 cb();
@@ -72,34 +199,61 @@ var BackendFaker = function (config) {
         });
     };
 
+    /**
+     * Response constructor
+     * @param path
+     * @param id
+     * @param backendDefinition
+     * @returns {BackendFaker.Response}
+     * @constructor
+     */
     var Response = function (path, id, backendDefinition) {
         var response = {};
         var status = 200;                                                   //set default status
+        backendDefinition = deflate(backendDefinition, path);               //deflate backend structure
         var maxnOfListItems = (backendDefinition._LIST_)
             ? faker.random.number(backendDefinition._LIST_)
             : null;
 
-        var hasConnectionToPath = (backendDefinition._CONNECT_)
-            ? backendDefinition._CONNECT_
+        var hasConnectionToPath = (backendDefinition._JOIN_)
+            ? backendDefinition._JOIN_
             : null;
 
+        /**
+         * Throws an error if a response cannot be constructed.
+         * @param tProp - target faker property
+         * @param tMethod - target faker method
+         */
         var definitionSuccessCheck = function (tProp, tMethod) {
-            if (!tProp || !tMethod) { throw 'Response could not be constructed! Please check your backend.json file.' }
+            if (!tProp || !tMethod) { throw new ReferenceError('Response could not be constructed! Please check your backend.json file.') }
         };
 
+        /**
+         * Returns false if the definition property specified is a reserved key.
+         * @param definition
+         * @returns {boolean}
+         */
         var abortIfReservedKey = function (definition) {
             var pass = true;
             RESERVEDKEYS.forEach(function (el) {
-                if (el === definition) {pass = false}
+                if (el === definition) {pass = false; return}
             });
             return pass;
         };
 
-        var assignToResponse = function (bdp, tProp, tMethod) {
+        /**
+         * Assigns a targeted faker method to the provided response.
+         * @param bdp - backend definition property
+         * @param tProp - faker target property
+         * @param tMethod - target faker method
+         */
+        var assignToResponse = function (bdp, tProp, tMethod, response) {
+            var resp = response;
             if (abortIfReservedKey(bdp)) {
                 definitionSuccessCheck(targetProperty, targetMethod);
-                response[backendDefinitionProp] = faker[tProp][tMethod];
+                resp[bdp] = faker[tProp][tMethod];
             }
+            return resp;
         };
 
         for (var backendDefinitionProp in backendDefinition) {
@@ -112,14 +266,14 @@ var BackendFaker = function (config) {
                     }
                 });
             }
-            assignToResponse(backendDefinitionProp, targetProperty, targetMethod);
+            response = assignToResponse(backendDefinitionProp, targetProperty, targetMethod, response);
             if (!maxnOfListItems && abortIfReservedKey(backendDefinitionProp)) {
                 /*
                 * Temporary
                 * TODO: fix by allowing to send arguments to faker through backend.json
                 * */
-                if (backendDefinitionProp === 'faker.random.number') {
-                    response[backendDefinitionProp] = response[backendDefinitionProp](2000);
+                if (backendDefinitionProp === 'id') {
+                    response[backendDefinitionProp] = response[backendDefinitionProp](200000);
                 }
                 else {
                     response[backendDefinitionProp] = response[backendDefinitionProp]();
@@ -127,18 +281,24 @@ var BackendFaker = function (config) {
             }
         }
 
-        //extend if response has connection to other path
-        var extendWithConnection = function () {
+
+        /**
+         *
+         * @param resp
+         * @return {*}
+         */
+        var extendWithConnection = function (resp) {
             for (var bufferId in responseBuffer[hasConnectionToPath]) {
                 responseBuffer[hasConnectionToPath][bufferId].response.data.forEach(function (el, index) {
                     if (el.id === parseInt(id, 10)) {
-                        response = extend(response, el);
+                        resp = extend(resp, el);
                     }
                 });
             }
+            return resp;
         };
 
-        if (hasConnectionToPath) { extendWithConnection() }
+        if (hasConnectionToPath) { response = extendWithConnection(response); }
 
         if (maxnOfListItems) {
             var responseList = [];
@@ -156,6 +316,11 @@ var BackendFaker = function (config) {
             }
             response = responseList;
         }
+
+        //inflate the response
+        response = inflate(response);
+
+        if (!maxnOfListItems) { response = response[0] }
 
         this.response = {
             data: response,
@@ -197,6 +362,7 @@ var BackendFaker = function (config) {
                 break;
             }
 
+            //set up server
             server[type](path, function (request, response) {
                 setTimeout(function () {
                     var res = (responseBuffer._hasResponse_(path, (request.params.id) ? request.params.id : null))
@@ -221,7 +387,7 @@ var BackendFaker = function (config) {
 var translateCfg = {
     'd': 'DELAY',
     'p': 'PORT',
-    'b': 'BACKENDPATH',
+    'b': 'BACKENDPATH'
 };
 
 var config = {};
