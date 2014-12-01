@@ -25,9 +25,32 @@
     },
     {
         "/i/want/a/profile/:id": {
-            "_CONNECT_": "/i/want/a/list/of/stuff/:id",
+            "_JOIN_": "/i/want/a/list/of/stuff/:id",
             "id": "number",
             "profilePic": "avatar",
+            "email_address": "email",
+            "country": "country"
+        }
+    },
+    {
+        "/nested/:id": {
+            "_LIST_": 50,
+            "id": "number",
+            "profilePic": "avatar",
+            "whatever": {
+                "email_address2": "email",
+                "country2": "country",
+                "id": "number",
+                "profilePic2": "avatar",
+                "moreWhatever": {
+                    "what": "phoneNumberFormat",
+                    "address": "streetName",
+                    "firstName": "firstName",
+                    "moreDepth": {
+                        "moreStuff": "phoneNumberFormat"
+                    }
+                }
+            },
             "email_address": "email",
             "country": "country"
         }
