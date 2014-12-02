@@ -32,7 +32,6 @@ var isArray = function (arr) {
  *
  * Backend constructor.
  *
- * TODO: add way to pass arguments to faker methods through backend.json (e.g. for specifying max range in faker.random.number())
  * TODO: add support for request types other than just get
  * TODO: add a way to "save" to the server by making a PUT request
  * TODO: configure response to include headers etc.
@@ -211,6 +210,7 @@ var BackendFaker = function (config) {
         var response = {};
         var status = 200;                                                   //set default status
         backendDefinition = deflate(backendDefinition, path);               //deflate backend structure
+        var args = parseMethodArguments(backendDefinition);
         var maxnOfListItems = (backendDefinition._LIST_)
             ? faker.random.number(backendDefinition._LIST_)
             : null;
@@ -241,6 +241,35 @@ var BackendFaker = function (config) {
             return pass;
         };
 
+        function parseMethodArguments (definition) {
+            var obj = {};
+            var argRegex = /\(([^)]+)\)/ig;
+            var nRegex = /^\d+$/;
+            for (var prop in definition) {
+                if (typeof definition[prop] !== 'string') { continue; }
+                if (definition[prop].match(argRegex)) {
+                    obj[prop] = definition[prop]
+                        .match(argRegex)[0]
+                        .replace('(', '')
+                        .replace(')', '')
+                        .replace(' ', '')
+                        .split(',');
+
+                    backendDefinition[prop] = backendDefinition[prop].replace(argRegex, '');
+
+                    //look for and parse numbers
+                    obj[prop].forEach(function (el, index) {
+                        if (typeof el === 'string') {
+                            obj[prop][index] = (el.match(nRegex)) ? parseInt(el, 10) : el;
+                        }
+                    });
+                }
+            }
+            return obj;
+        }
+
+
+
         /**
          * Assigns a targeted faker method to the provided response.
          * @param bdp - backend definition property
@@ -250,7 +279,7 @@ var BackendFaker = function (config) {
         var assignToResponse = function (bdp, tProp, tMethod, response) {
             var resp = response;
             if (abortIfReservedKey(bdp)) {
-                definitionSuccessCheck(targetProperty, targetMethod);
+                definitionSuccessCheck(tProp, tMethod);
                 resp[bdp] = faker[tProp][tMethod];
             }
             return resp;
@@ -268,22 +297,13 @@ var BackendFaker = function (config) {
             }
             response = assignToResponse(backendDefinitionProp, targetProperty, targetMethod, response);
             if (!maxnOfListItems && abortIfReservedKey(backendDefinitionProp)) {
-                /*
-                * Temporary
-                * TODO: fix by allowing to send arguments to faker through backend.json
-                * */
-                if (backendDefinitionProp === 'id') {
-                    response[backendDefinitionProp] = response[backendDefinitionProp](200000);
-                }
-                else {
-                    response[backendDefinitionProp] = response[backendDefinitionProp]();
-                }
+                response[backendDefinitionProp] = response[backendDefinitionProp].apply(this, args[backendDefinitionProp]);
             }
         }
 
 
         /**
-         *
+         * Extends the response with any joins connected to this request.
          * @param resp
          * @return {*}
          */
@@ -305,13 +325,7 @@ var BackendFaker = function (config) {
             for (var i = 0; i < maxnOfListItems; i++) {
                 for (var prop in response) {
                     if (!responseList[i]) { responseList[i] = {} }
-                    //temp fix for ids
-                    if (prop === 'id') {
-                        responseList[i][prop] = response[prop](2000);
-                    }
-                    else {
-                        responseList[i][prop] = response[prop]();
-                    }
+                    responseList[i][prop] = response[prop].apply(this, args[prop]);
                 }
             }
             response = responseList;
