@@ -244,18 +244,25 @@ var BackendFaker = function (config) {
         function parseMethodArguments (definition) {
             var obj = {};
             var argRegex = /\(([^)]+)\)/ig;
+            var bracketRegex = /\[(.*?)\]/ig;
             var nRegex = /^\d+$/;
             for (var prop in definition) {
                 if (typeof definition[prop] !== 'string') { continue; }
                 if (definition[prop].match(argRegex)) {
+                    var arr = (definition[prop].match(bracketRegex)) ? true : false;
                     obj[prop] = definition[prop]
                         .match(argRegex)[0]
                         .replace('(', '')
                         .replace(')', '')
+                        .replace('[', '')
+                        .replace(']', '')
+                        .replace(']', '')
+                        .replace(/\'/ig, '')
                         .replace(' ', '')
                         .split(',');
-
+                    
                     backendDefinition[prop] = backendDefinition[prop].replace(argRegex, '');
+                    backendDefinition[prop] = backendDefinition[prop].replace(bracketRegex, '');
 
                     //look for and parse numbers
                     obj[prop].forEach(function (el, index) {
@@ -263,6 +270,8 @@ var BackendFaker = function (config) {
                             obj[prop][index] = (el.match(nRegex)) ? parseInt(el, 10) : el;
                         }
                     });
+
+                    if (arr) { obj[prop] = [obj[prop]]}
                 }
             }
             return obj;
