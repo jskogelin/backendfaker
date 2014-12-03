@@ -268,8 +268,6 @@ var BackendFaker = function (config) {
             return obj;
         }
 
-
-
         /**
          * Assigns a targeted faker method to the provided response.
          * @param bdp - backend definition property
@@ -297,7 +295,7 @@ var BackendFaker = function (config) {
             }
             response = assignToResponse(backendDefinitionProp, targetProperty, targetMethod, response);
             if (!maxnOfListItems && abortIfReservedKey(backendDefinitionProp)) {
-                response[backendDefinitionProp] = response[backendDefinitionProp].apply(this, args[backendDefinitionProp]);
+                response[backendDefinitionProp] = response[backendDefinitionProp].apply(null, args[backendDefinitionProp]);
             }
         }
 
@@ -325,7 +323,7 @@ var BackendFaker = function (config) {
             for (var i = 0; i < maxnOfListItems; i++) {
                 for (var prop in response) {
                     if (!responseList[i]) { responseList[i] = {} }
-                    responseList[i][prop] = response[prop].apply(this, args[prop]);
+                    responseList[i][prop] = response[prop].apply(null, args[prop]);
                 }
             }
             response = responseList;
@@ -366,6 +364,10 @@ var BackendFaker = function (config) {
         }
     };
 
+    var clone = function (def) {
+        return extend({}, def);
+    };
+
     this.createBackendRoutes = function () {
 
         _super.backend.forEach(function (el) {
@@ -381,7 +383,7 @@ var BackendFaker = function (config) {
                 setTimeout(function () {
                     var res = (responseBuffer._hasResponse_(path, (request.params.id) ? request.params.id : null))
                         ? responseBuffer[path][request.params.id]
-                        : new Response(path, request.params.id, el[path]);
+                        : new Response(path, request.params.id, clone(el[prop]));
                     response.header("Access-Control-Allow-Origin", "*");
                     response.header("Access-Control-Allow-Headers", "X-Requested-With");
                     response.send(res.response.string());
