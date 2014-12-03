@@ -1,0 +1,96 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Backend faker demo</title>
+</head>
+<body>
+ID to get: <input type="text" class="id"/>
+<button onclick="getProfile()">Get a profile</button>
+<ul id="profile-response">
+    <li class="result">{{firstName}} {{lastName}} {{phoneNumber}} {{street}}</li>
+</ul>
+
+<hr/>
+
+Lists:
+ID to get: <input type="text" class="list-id"/>
+<ul id="list-response">
+    <li class="list-result"><a href="#" id="{{id}}">{{firstName}} {{lastName}} {{phoneNumber}} {{street}}</a></li>
+</ul>
+
+<button onclick="getList()">Get a list of profiles</button>
+
+<div id="profile-response2">
+    <div id="profile">
+        {{firstName}} {{lastName}} {{phoneNumber}} {{street}}
+        <img src="{{profilePic}}" alt=""/>
+        {{email_address}}
+        {{country}}
+    </div>
+</div>
+
+Nested:
+ID to get: <input type="text" class="nested-id"/>
+<button id="nested-response">Get a list of profiles</button>
+
+<script src="lib/jquery-2.1.1.min.js"></script>
+<script>
+    var $result = $('.result');
+    var $listResult = $('.list-result');
+    var $profile = $('#profile');
+    $('.result').detach();
+    $('.list-result').remove();
+    $('#profile').detach();
+    function getProfile() {
+        var val = $('.id').val();
+        $.get('http://localhost:2000/i/want/a/response/' + val, function (response) {
+            $result.html($result.html()
+                    .replace('{{firstName}}', JSON.parse(response).firstName)
+                    .replace('{{lastName}}', JSON.parse(response).lastName)
+                    .replace('{{phoneNumber}}', JSON.parse(response).phone)
+                    .replace('{{street}}', JSON.parse(response).address))
+            $('#profile-response').html($result);
+        });
+    }
+    function getList() {
+        var val = $('.list-id').val();
+        $('#list-response').html('');
+        $.get('http://localhost:2000/i/want/a/list/of/stuff/' + val, function (response) {
+            JSON.parse(response).forEach(function (el) {
+                var $clone = $listResult.clone();
+                $clone.html($clone.html()
+                        .replace('{{id}}', el.id)
+                        .replace('{{firstName}}', el.firstName)
+                        .replace('{{lastName}}', el.lastName)
+                        .replace('{{phoneNumber}}', el.phone)
+                        .replace('{{street}}', el.address));
+                $('#list-response').append($clone);
+            });
+        });
+    }
+
+    $('#list-response').on('click', function (e) {
+        $.get('http://localhost:2000/i/want/a/profile/' + $(e.target).attr('id'), function (response) {
+            var $clone = $profile.clone();
+            $('#profile-response2').html('');
+            $clone.html($clone.html()
+                    .replace('{{id}}', JSON.parse(response).id)
+                    .replace('{{firstName}}', JSON.parse(response).firstName)
+                    .replace('{{lastName}}', JSON.parse(response).lastName)
+                    .replace('{{phoneNumber}}', JSON.parse(response).phone)
+                    .replace('{{street}}', JSON.parse(response).address)
+                    .replace('{{profilePic}}', JSON.parse(response).profilePic)
+                    .replace('{{email_address}}', JSON.parse(response).email_address)
+                    .replace('{{country}}', JSON.parse(response).country));
+            $('#profile-response2').append($clone);
+        });
+    });
+    $('#nested-response').on('click', function () {
+        var val = $('.nested-id').val();
+        $.get('http://localhost:2000/nested/' + val, function (response) {
+            console.log(JSON.parse(response));
+        });
+    });
+</script>
+</body>
+</html>

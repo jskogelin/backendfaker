@@ -26,7 +26,7 @@
     {
         "/i/want/a/profile/:id": {
             "_JOIN_": "/i/want/a/list/of/stuff/:id",
-            "id": "number",
+            "id": "number(20000)",
             "profilePic": "avatar",
             "email_address": "email",
             "country": "country"
@@ -35,7 +35,7 @@
     {
         "/nested/:id": {
             "_LIST_": 50,
-            "id": "number",
+            "id": "number(20000)",
             "profilePic": "avatar",
             "whatever": {
                 "email_address2": "email",
