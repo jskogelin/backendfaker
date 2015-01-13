@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 'use strict';
 
-var faker = require('../node_modules/faker'),
+var faker = require('faker'),
     fs = require('fs'),
     extend = require('node.extend'),
     express = require('express'),
     argv = require('yargs').argv,
-    server = express();
+    server = express(),
+    cors = require('cors');
 
 if (argv.h) {
     console.log([
         'usage: backend-faker [options]',
         '',
         'options:',
+        '  -D       set domain for CORS',
+        '  -P       set port for CORS',
         '  -p       sets the port that the faker server listens to',
         '  -d       sets a maximum delay (in milliseconds) for the server to wait before responding',
         '  -b       looks for the backend.json file in the specified path',
@@ -78,38 +81,36 @@ var BackendFaker = function (config) {
      * Deflate object depth for easier element interaction.
      *
      * Each value key populated by pointers to its original location for later use by inflate
-     * @param obj
+     * @param backendDef
      * @param path
      * @returns {*}
      */
-    var deflate = function(obj, path) {
+    var deflate = function(backendDef, path) {
         var dirty = [];
-        deflated[path] = obj;
+        deflated[path] = backendDef;
         var flatCheck = function() {
-            for (var prop in obj) {
-                if (typeof obj[prop] === 'object') {
+            for (var prop in backendDef) {
+                if (typeof backendDef[prop] === 'object') {
                     dirty.push(prop);
                 }
             }
         };
         var makeFlat = function() {
             dirty.forEach(function(el, index) {
-                for (var prop in obj[el]) {
-                    obj[prop + ':' + el] = obj[el][prop];           //set pointer to parent object
+                for (var prop in backendDef[el]) {
+                    backendDef[prop + ':' + el] = backendDef[el][prop];           //set pointer to parent object
                     dirty.splice(index, 1);
 
-                    delete obj[el][prop];
-                    if (isEmpty(obj[el])) { delete obj[el] }
+                    delete backendDef[el][prop];
+                    if (isEmpty(backendDef[el])) { delete backendDef[el]; }
                 }
             });
             flatCheck();
-            if (dirty.length > 0) {
-                makeFlat();
-            }
+            if (dirty.length > 0) { makeFlat(); }
         };
         flatCheck();
         makeFlat();
-        return obj;
+        return backendDef;
     };
 
     /**
@@ -121,7 +122,7 @@ var BackendFaker = function (config) {
         resp = (!isArray(resp)) ? [resp] : resp;
 
         /**
-         * Restores the original depth.
+         * Restores original depth.
          * @param buffer
          * @returns {*}
          */
@@ -208,13 +209,16 @@ var BackendFaker = function (config) {
      */
     var Response = function (path, id, backendDefinition) {
         var response = {};
-        var status = 200;                                                   //set default status
-        backendDefinition = deflate(backendDefinition, path);               //deflate backend structure
+        var status = 200;                                                           //set default status
+        backendDefinition = deflate(clone(backendDefinition), path);               //deflate backend structure
         var args = parseMethodArguments(backendDefinition);
+
+        //set amount of items to return
         var maxnOfListItems = (backendDefinition._LIST_)
             ? faker.random.number(backendDefinition._LIST_)
             : null;
 
+        //set any defined _JOINS_
         var hasConnectionToPath = (backendDefinition._JOIN_)
             ? backendDefinition._JOIN_
             : null;
@@ -261,8 +265,7 @@ var BackendFaker = function (config) {
                         .replace(' ', '')
                         .split(',');
                     
-                    backendDefinition[prop] = backendDefinition[prop].replace(argRegex, '');
-                    backendDefinition[prop] = backendDefinition[prop].replace(bracketRegex, '');
+                    backendDefinition[prop] = backendDefinition[prop].replace(argRegex, '').replace(bracketRegex, '');
 
                     //look for and parse numbers
                     obj[prop].forEach(function (el, index) {
@@ -316,6 +319,12 @@ var BackendFaker = function (config) {
          */
         var extendWithConnection = function (resp) {
             for (var bufferId in responseBuffer[hasConnectionToPath]) {
+                
+                responseBuffer[hasConnectionToPath][bufferId].response.data
+                    = (isArray(responseBuffer[hasConnectionToPath][bufferId].response.data)) ?
+                        responseBuffer[hasConnectionToPath][bufferId].response.data :
+                        [responseBuffer[hasConnectionToPath][bufferId].response.data];
+
                 responseBuffer[hasConnectionToPath][bufferId].response.data.forEach(function (el, index) {
                     if (el.id === parseInt(id, 10)) {
                         resp = extend(resp, el);
@@ -325,7 +334,9 @@ var BackendFaker = function (config) {
             return resp;
         };
 
-        if (hasConnectionToPath) { response = extendWithConnection(response); }
+        if (hasConnectionToPath) { 
+            response = extendWithConnection(response);
+        }
 
         if (maxnOfListItems) {
             var responseList = [];
@@ -374,27 +385,27 @@ var BackendFaker = function (config) {
     };
 
     var clone = function (def) {
-        return extend({}, def);
+        return JSON.parse(JSON.stringify(def));
     };
 
     this.createBackendRoutes = function () {
 
-        _super.backend.forEach(function (el) {
+        _super.backend.forEach(function (el, index) {
             var path;
             var type = 'get';
             for(var prop in el) {
                 path = prop;
                 break;
             }
+            var corsOrigin = 'http://' + CONFIG.CORSDOMAIN;
+            if (CONFIG.CORSPORT) { corsOrigin = corsOrigin.concat(':' + CONFIG.CORSPORT) }
 
             //set up server
-            server[type](path, function (request, response) {
+            server.get(path, cors({origin: corsOrigin, credentials: false}), function (request, response) {
                 setTimeout(function () {
                     var res = (responseBuffer._hasResponse_(path, (request.params.id) ? request.params.id : null))
                         ? responseBuffer[path][request.params.id]
-                        : new Response(path, request.params.id, clone(el[prop]));
-                    response.header("Access-Control-Allow-Origin", "*");
-                    response.header("Access-Control-Allow-Headers", "X-Requested-With");
+                        : new Response(path, request.params.id, clone(_super.backend[index][prop]));
                     response.send(res.response.string());
                     doLog('REQUEST: ' + request.method + ' ' + request.url);
                 }, (CONFIG.DELAY === 0) ? CONFIG.DELAY : faker.random.number(CONFIG.DELAY));
@@ -412,9 +423,10 @@ var BackendFaker = function (config) {
 var translateCfg = {
     'd': 'DELAY',
     'p': 'PORT',
-    'b': 'BACKENDPATH'
+    'b': 'BACKENDPATH',
+    'D': 'CORSDOMAIN',
+    'P': 'CORSPORT'
 };
-
 var config = {};
 
 for (var cfg in translateCfg) {
