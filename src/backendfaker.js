@@ -250,6 +250,20 @@ var BackendFaker = function (config) {
             var argRegex = /\(([^)]+)\)/ig;
             var bracketRegex = /\[(.*?)\]/ig;
             var nRegex = /^\d+$/;
+            var trueRegex = /^true$/;
+            var falseRegex = /^false$/;
+
+            function matchAndReplace(val, matchers) {
+                var returnval;
+                matchers.forEach(function (el) {
+                    if (val.match(el[0])) {
+                        returnval = el[1](val);
+                        return false;
+                    }
+                });
+                return returnval;
+            }
+
             for (var prop in definition) {
                 if (typeof definition[prop] !== 'string') { continue; }
                 if (definition[prop].match(argRegex)) {
@@ -270,7 +284,18 @@ var BackendFaker = function (config) {
                     //look for and parse numbers
                     obj[prop].forEach(function (el, index) {
                         if (typeof el === 'string') {
-                            obj[prop][index] = (el.match(nRegex)) ? parseInt(el, 10) : el;
+
+                            obj[prop][index] = matchAndReplace(el, [
+                                [trueRegex, function () {
+                                    return true;
+                                }],
+                                [falseRegex, function () {
+                                    return false;
+                                }],
+                                [nRegex, function (val) {
+                                    return parseInt(val, 10);
+                                }]
+                            ]);
                         }
                     });
 
@@ -349,7 +374,7 @@ var BackendFaker = function (config) {
             response = responseList;
         }
 
-        //inflate the response
+        //inflate the response back to original state
         response = inflate(response);
 
         if (!maxnOfListItems) { response = response[0] }
