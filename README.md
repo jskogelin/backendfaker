@@ -10,8 +10,6 @@ backend-faker now supports nested backend structures. Yay!
 Run `npm install backend-faker` in your project directory.
 
 ## usage
-NOTE: This only supports GET at the moment!
-
 Create a `backend.json` file in your project folder. `backend.json` sample:
 ```json
 [
@@ -31,6 +29,21 @@ Each value nested under a path is the name of a faker method. Available faker me
 Following the former example, a call to `/fake/response/123` would produce
 ```json
 {"first_name": "SomeFirstName", "company_name": "Random Company Name"}
+```
+
+
+### method
+Use `_METHOD_` to specify HTTP METHOD.
+```json
+[
+  {
+    "/i/want/a/list/of/stuff/:id": {
+      "_METHOD_": "POST",
+      "first_name": "firstName",
+      "last_name": "lastName"
+    }
+  }
+]
 ```
 
 ### lists
@@ -57,9 +70,7 @@ You can join ids of two requests by including a `_JOIN_` value containing a prev
             "id": "number",
             "first_name": "firstName",
             "last_name": "lastName"
-        }
-    },
-    {
+        },
         "/profile/:id": {
             "_JOIN_": "/i/want/a/list/of/stuff/:id",
             "id": "number",
@@ -71,11 +82,3 @@ You can join ids of two requests by including a `_JOIN_` value containing a prev
 ]
 ```
 In this case, a request to `/profile/:id` (provided with an id found in `/list/of/profiles/:id`) would join the two responses before returning.
-
-###upcoming
-* POST
-* PUT
-
-
-
-
