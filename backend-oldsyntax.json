@@ -1,0 +1,64 @@
+[
+    {
+        "/post/things": {
+            "_METHOD_": "POST",
+            "id": "number(20000)"
+        }
+    },
+    {
+        "/fake/response/:id": {
+            "name": "firstName",
+            "company": "companyName"
+        }
+    },
+    {
+        "/i/want/a/response/:id": {
+            "firstName": "firstName",
+            "lastName": "lastName",
+            "phone": "phoneNumberFormat",
+            "address": "streetName"
+        }
+    },
+    {
+        "/i/want/a/list/of/stuff/:id": {
+            "_LIST_": 20,
+            "id": "number",
+            "firstName": "firstName",
+            "lastName": "lastName",
+            "phone": "phoneNumberFormat",
+            "address": "streetName"
+        }
+    },
+    {
+        "/i/want/a/profile/:id": {
+            "_JOIN_": "/i/want/a/list/of/stuff/:id",
+            "id": "number(20000)",
+            "profilePic": "avatar",
+            "email_address": "email",
+            "country": "country"
+        }
+    },
+    {
+        "/nested/:id": {
+            "_LIST_": 50,
+            "id": "number(20000)",
+            "profilePic": "avatar",
+            "whatever": {
+                "email_address2": "email",
+                "country2": "country",
+                "id": "number",
+                "profilePic2": "avatar",
+                "moreWhatever": {
+                    "what": "phoneNumberFormat",
+                    "address": "streetName",
+                    "firstName": "firstName",
+                    "moreDepth": {
+                        "moreStuff": "phoneNumberFormat"
+                    }
+                }
+            },
+            "email_address": "email",
+            "country": "country"
+        }
+    }
+]

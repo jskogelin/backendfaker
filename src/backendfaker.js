@@ -7,7 +7,9 @@ var faker = require('faker'),
     express = require('express'),
     argv = require('yargs').argv,
     server = express(),
-    cors = require('cors');
+    cors = require('cors'),
+    _ = require('underscore'),
+    path = require('path');
 
 if (argv.h) {
     console.log([
@@ -55,7 +57,7 @@ var BackendFaker = function (config) {
     };
     var CONFIG = extend(DEFAULT, config);
 
-    var RESERVEDKEYS = ['_LIST_', '_JOIN_'];
+    var RESERVEDKEYS = ['_LIST_', '_JOIN_', '_METHOD_'];
 
     var _super = this;
 
@@ -188,13 +190,15 @@ var BackendFaker = function (config) {
     };
 
     //reads the backend.json file located in the path specified by the CONFIG
-    this.readBackendConfig = function (cb) {
+    this.readBackendConfig = function (callback) {
+        console.log('Loading config ' + path.resolve(CONFIG.BACKENDPATH));
+
         fs.readFile(CONFIG.BACKENDPATH, 'utf8', function (err, data) {
             if (err) {
                 throw 'There was an error reading the backend config! Make sure you have a backend.json file in the directory where this is running.';
             } else {
                 _super.backend = JSON.parse(data);
-                cb();
+                callback();
             }
         });
     };
@@ -210,7 +214,7 @@ var BackendFaker = function (config) {
     var Response = function (path, id, backendDefinition) {
         var response = {};
         var status = 200;                                                           //set default status
-        backendDefinition = deflate(clone(backendDefinition), path);               //deflate backend structure
+        backendDefinition = deflate(_.clone(backendDefinition), path);               //deflate backend structure
         var args = parseMethodArguments(backendDefinition);
 
         //set amount of items to return
@@ -409,28 +413,43 @@ var BackendFaker = function (config) {
         }
     };
 
-    var clone = function (def) {
-        return JSON.parse(JSON.stringify(def));
-    };
+    //var clone = function (def) {
+    //    return JSON.parse(JSON.stringify(def));
+    //};
 
     this.createBackendRoutes = function () {
 
-        _super.backend.forEach(function (el, index) {
-            var path;
-            var type = 'get';
-            for(var prop in el) {
-                path = prop;
-                break;
-            }
-            var corsOrigin = 'http://' + CONFIG.CORSDOMAIN;
-            if (CONFIG.CORSPORT) { corsOrigin = corsOrigin.concat(':' + CONFIG.CORSPORT) }
+        var config = correctConfig(_super.backend);     // Make sure config uses the correct format
 
-            //set up server
-            server.get(path, cors({origin: corsOrigin, credentials: false}), function (request, response) {
+        _.each(config, function (el, path) {
+            var type = (el._METHOD_ || 'get').toLowerCase();
+            var corsOrigin = 'http://' + CONFIG.CORSDOMAIN;
+            var corsOptions;
+
+            if (CONFIG.CORSPORT) {
+                corsOrigin = corsOrigin.concat(':' + CONFIG.CORSPORT)
+            }
+
+            corsOptions = {
+                origin: corsOrigin,
+                credentials: false,
+                methods: [ type ]
+            };
+
+            if (type == 'post') {
+                // Handle preflight request (OPTIONS). This is only sent for POST requests.
+                corsOptions.methods.push('options');
+                server.options(path, cors(corsOptions), function (response) {
+                    response.status(200);
+                });
+            }
+
+            // Set up server
+            server[type](path, cors(corsOptions), function (request, response) {
                 setTimeout(function () {
                     var res = (responseBuffer._hasResponse_(path, (request.params.id) ? request.params.id : null))
                         ? responseBuffer[path][request.params.id]
-                        : new Response(path, request.params.id, clone(_super.backend[index][prop]));
+                        : new Response(path, request.params.id, _.clone(el));
                     response.send(res.response.string());
                     doLog('REQUEST: ' + request.method + ' ' + request.url);
                 }, (CONFIG.DELAY === 0) ? CONFIG.DELAY : faker.random.number(CONFIG.DELAY));
@@ -443,6 +462,30 @@ var BackendFaker = function (config) {
             console.log('Fake backend up and running! Listening in on port ' + CONFIG.PORT);
         });
     };
+
+    /**
+     * Automatically convert to latest config syntax version
+     * @param config
+     */
+    function correctConfig(config) {
+        var newConfig = {};
+
+        if (config.length > 1) {
+            // Version 1
+            _.each(config, function (o) {
+                _.each(o, function (properties, path) {
+                    newConfig[path] = _.clone(properties);
+                });
+            });
+        } else if (config.length == 1) {
+            // Version 2
+            newConfig = _.clone(config[0]);
+        } else {
+            throw 'Invalid config syntax';
+        }
+
+        return newConfig;
+    }
 };
 
 var translateCfg = {
