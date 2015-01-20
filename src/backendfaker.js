@@ -335,7 +335,7 @@ var BackendFaker = function (config) {
                 });
             }
             response = assignToResponse(backendDefinitionProp, targetProperty, targetMethod, response);
-            if (!maxnOfListItems && abortIfReservedKey(backendDefinitionProp)) {
+            if (maxnOfListItems === null && abortIfReservedKey(backendDefinitionProp)) {
                 response[backendDefinitionProp] = response[backendDefinitionProp].apply(null, args[backendDefinitionProp]);
             }
         }
@@ -367,7 +367,7 @@ var BackendFaker = function (config) {
             response = extendWithConnection(response);
         }
 
-        if (maxnOfListItems) {
+        if (maxnOfListItems !== null) {
             var responseList = [];
             for (var i = 0; i < maxnOfListItems; i++) {
                 for (var prop in response) {
@@ -381,7 +381,7 @@ var BackendFaker = function (config) {
         //inflate the response back to original state
         response = inflate(response);
 
-        if (!maxnOfListItems) { response = response[0] }
+        if (maxnOfListItems === null) { response = response[0] }
 
         this.response = {
             data: response,
