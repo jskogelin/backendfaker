@@ -1,7 +1,8 @@
 [{
     "/post/things": {
         "_METHOD_": "POST",
-        "id": "number(20000)"
+        "id": "number(20000)",
+        "thing": "randomize([asd, qwe, rty])"
     },
     "/fake/response/:id": {
         "name": "firstName",
@@ -29,7 +30,6 @@
         "country": "country"
     },
     "/nested/:id": {
-        "_LIST_": 50,
         "id": "number(20000)",
         "profilePic": "avatar",
         "whatever": {

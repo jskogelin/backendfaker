@@ -59,7 +59,7 @@ var BackendFaker = function (config) {
 
     var RESERVEDKEYS = ['_LIST_', '_JOIN_', '_METHOD_'];
 
-    var _super = this;
+    var self = this;
 
     var fakerMethod = JSON.parse('{"name":["firstName","lastName","findName","prefix","suffix"],"address":["zipCode","city","cityPrefix","citySuffix","streetName","streetAddress","streetSuffix","secondaryAddress","county","country","state","stateAbbr","latitude","longitude"],"phone":["phoneNumber","phoneNumberFormat","phoneFormats"],"internet":["avatar","email","userName","domainName","domainSuffix","domainWord","ip","userAgent","color","password"],"company":["suffixes","companyName","companySuffix","catchPhrase","bs","catchPhraseAdjective","catchPhraseDescriptor","catchPhraseNoun","bsAdjective","bsBuzz","bsNoun"],"image":["image","avatar","imageUrl","abstract","animals","business","cats","city","food","nightlife","fashion","people","nature","sports","technics","transport"],"lorem":["words","sentence","sentences","paragraph","paragraphs"],"helpers":["randomNumber","randomize","slugify","replaceSymbolWithNumber","shuffle","mustache","createCard","contextualCard","userCard","createTransaction"],"date":["past","future","between","recent"],"random":["number","array_element","object_element"],"finance":["account","accountName","mask","amount","transactionType","currencyCode","currencyName","currencySymbol"],"hacker":["abbreviation","adjective","noun","verb","ingverb","phrase"]}');
     
@@ -197,7 +197,7 @@ var BackendFaker = function (config) {
             if (err) {
                 throw 'There was an error reading the backend config! Make sure you have a backend.json file in the directory where this is running.';
             } else {
-                _super.backend = JSON.parse(data);
+                self.backend = JSON.parse(data);
                 callback();
             }
         });
@@ -258,7 +258,7 @@ var BackendFaker = function (config) {
             var falseRegex = /^false$/;
 
             function matchAndReplace(val, matchers) {
-                var returnval;
+                var returnval = val;
                 matchers.forEach(function (el) {
                     if (val.match(el[0])) {
                         returnval = el[1](val);
@@ -419,7 +419,7 @@ var BackendFaker = function (config) {
 
     this.createBackendRoutes = function () {
 
-        var config = correctConfig(_super.backend);     // Make sure config uses the correct format
+        var config = correctConfig(self.backend);     // Make sure config uses the correct format
 
         _.each(config, function (el, path) {
             var type = (el._METHOD_ || 'get').toLowerCase();
